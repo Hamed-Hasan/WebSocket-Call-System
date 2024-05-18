@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calling System - User</title>
+    <link rel="stylesheet" href="/styles/style.css">
+</head>
+<body>
+    <h1>Calling System - User <span id="user-id"></span></h1>
+    <div>
+        <label for="call-to">Call to:</label>
+        <select id="call-to"></select>
+        <button id="call-btn">Call</button>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <p>Incoming call from <span id="caller-id"></span>: <span id="caller-username"></span></p>
+            <button id="accept-btn">Accept</button>
+            <button id="reject-btn">Reject</button>
+        </div>
+    </div>
+    <p id="call-status" style="display: none;"></p>
+
+    <script>
+        const userId = window.location.pathname.split('/').pop();
+        document.getElementById('user-id').textContent = userId;
+
+        let userMapping;
+
+        fetch('/user-mapping')
+            .then(response => response.json())
+            .then(data => {
+                userMapping = data;
+                const callToSelect = document.getElementById('call-to');
+                for (const [id, name] of Object.entries(userMapping)) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = name;
+                    callToSelect.appendChild(option);
+                }
+            });
+
+        const ws = new WebSocket('ws://' + window.location.host);
+
+        ws.onopen = () => {
+            console.log('WebSocket connection established');
+        };
+
+        ws.onmessage = (message) => {
+            const data = JSON.parse(message.data);
+            if (data.type === 'call' && data.target === userId) {
+                document.getElementById('modal').style.display = 'flex';
+                document.getElementById('caller-id').textContent = data.caller;
+                document.getElementById('caller-username').textContent = userMapping[data.caller];
+            } else if (data.type === 'response' && data.target === userId) {
+                const callStatus = document.getElementById('call-status');
+                callStatus.textContent = data.response === 'accepted' ? `Call accepted by ${userMapping[data.caller]}` : `Call rejected by ${userMapping[data.caller]}`;
+                callStatus.style.display = 'block';
+                setTimeout(() => {
+                    callStatus.style.display = 'none';
+                }, 5000); // Hide message after 3 seconds
+            }
+        };
+
+        document.getElementById('call-btn').onclick = () => {
+            const target = document.getElementById('call-to').value;
+            ws.send(JSON.stringify({ type: 'call', target: target, caller: userId }));
+        };
+
+        document.getElementById('accept-btn').onclick = () => {
+            ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'accepted' }));
+            window.location.href = '/hello-world';
+        };
+
+        document.getElementById('reject-btn').onclick = () => {
+            ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'rejected' }));
+            document.getElementById('modal').style.display = 'none';
+        };
+    </script>
+</body>
+</html>
