@@ -30,6 +30,7 @@
         document.getElementById('user-id').textContent = userId;
 
         let userMapping;
+        let callTimer;
 
         fetch('/user-mapping')
             .then(response => response.json())
@@ -68,12 +69,27 @@
                 setTimeout(() => {
                     callStatus.style.display = 'none';
                 }, 5000); // Hide message after 5 seconds
+                clearTimeout(callTimer);
+            } else if (data.type === 'call_timeout' && data.target === userId) {
+                const callStatus = document.getElementById('call-status');
+                callStatus.textContent = 'Call ended due to no response';
+                callStatus.style.display = 'block';
+                setTimeout(() => {
+                    callStatus.style.display = 'none';
+                }, 5000); // Hide message after 5 seconds
+                const ringtone = document.getElementById('ringtone');
+                ringtone.pause();
+                ringtone.currentTime = 0;
+                document.getElementById('modal').style.display = 'none';
             }
         };
 
         document.getElementById('call-btn').onclick = () => {
             const target = document.getElementById('call-to').value;
             ws.send(JSON.stringify({ type: 'call', target: target, caller: userId }));
+            callTimer = setTimeout(() => {
+                ws.send(JSON.stringify({ type: 'call_timeout', target: target, caller: userId }));
+            }, 60000); // 1 minute timeout
         };
 
         document.getElementById('accept-btn').onclick = () => {
@@ -81,6 +97,7 @@
             ringtone.pause();
             ringtone.currentTime = 0;
             ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'accepted' }));
+            clearTimeout(callTimer);
             window.location.href = '/hello-world';
         };
 
@@ -90,6 +107,7 @@
             ringtone.currentTime = 0;
             ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'rejected' }));
             document.getElementById('modal').style.display = 'none';
+            clearTimeout(callTimer);
         };
     </script>
 </body>

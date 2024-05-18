@@ -31,7 +31,6 @@ app.get('/user-mapping', (req, res) => {
     res.json(userMapping);
 });
 
-
 app.get('/hello-world', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'hello-world.html'));
 });
@@ -49,6 +48,12 @@ wss.on('connection', (ws) => {
             wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ type: 'response', target: data.target, caller: data.caller, response: data.response }));
+                }
+            });
+        } else if (data.type === 'call_timeout') {
+            wss.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'call_timeout', target: data.target, caller: data.caller }));
                 }
             });
         }
