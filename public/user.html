@@ -23,6 +23,8 @@
     </div>
     <p id="call-status" style="display: none;"></p>
 
+    <audio id="ringtone" src="/ringtone.mp3" loop></audio>
+
     <script>
         const userId = window.location.pathname.split('/').pop();
         document.getElementById('user-id').textContent = userId;
@@ -54,13 +56,18 @@
                 document.getElementById('modal').style.display = 'flex';
                 document.getElementById('caller-id').textContent = data.caller;
                 document.getElementById('caller-username').textContent = userMapping[data.caller];
+                const ringtone = document.getElementById('ringtone');
+                console.log('Playing ringtone...');
+                ringtone.play().catch(error => {
+                    console.error('Error playing ringtone:', error);
+                });
             } else if (data.type === 'response' && data.target === userId) {
                 const callStatus = document.getElementById('call-status');
                 callStatus.textContent = data.response === 'accepted' ? `Call accepted by ${userMapping[data.caller]}` : `Call rejected by ${userMapping[data.caller]}`;
                 callStatus.style.display = 'block';
                 setTimeout(() => {
                     callStatus.style.display = 'none';
-                }, 5000); // Hide message after 3 seconds
+                }, 5000); // Hide message after 5 seconds
             }
         };
 
@@ -70,11 +77,17 @@
         };
 
         document.getElementById('accept-btn').onclick = () => {
+            const ringtone = document.getElementById('ringtone');
+            ringtone.pause();
+            ringtone.currentTime = 0;
             ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'accepted' }));
             window.location.href = '/hello-world';
         };
 
         document.getElementById('reject-btn').onclick = () => {
+            const ringtone = document.getElementById('ringtone');
+            ringtone.pause();
+            ringtone.currentTime = 0;
             ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'rejected' }));
             document.getElementById('modal').style.display = 'none';
         };
