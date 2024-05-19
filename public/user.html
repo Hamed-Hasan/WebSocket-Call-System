@@ -38,10 +38,12 @@
                 userMapping = data;
                 const callToSelect = document.getElementById('call-to');
                 for (const [id, name] of Object.entries(userMapping)) {
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = name;
-                    callToSelect.appendChild(option);
+                    if (id !== userId) {
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = name;
+                        callToSelect.appendChild(option);
+                    }
                 }
             });
 
