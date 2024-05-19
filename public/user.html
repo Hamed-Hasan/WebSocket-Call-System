@@ -23,14 +23,14 @@
     </div>
     <p id="call-status" style="display: none;"></p>
 
-    <audio id="ringtone" src="/ringtone.mp3" loop></audio>
-
     <script>
         const userId = window.location.pathname.split('/').pop();
         document.getElementById('user-id').textContent = userId;
 
         let userMapping;
         let callTimer;
+        let audioContext;
+        let ringtoneBuffer;
 
         fetch('/user-mapping')
             .then(response => response.json())
@@ -54,10 +54,7 @@
                 document.getElementById('modal').style.display = 'flex';
                 document.getElementById('caller-id').textContent = data.caller;
                 document.getElementById('caller-username').textContent = userMapping[data.caller];
-                const ringtone = document.getElementById('ringtone');
-                ringtone.play().catch(error => {
-                    console.error('Error playing ringtone:', error);
-                });
+                playRingtone();
             } else if (data.type === 'response' && data.target === userId) {
                 const callStatus = document.getElementById('call-status');
                 callStatus.textContent = data.response === 'accepted' ? `Call accepted by ${userMapping[data.caller]}` : `Call rejected by ${userMapping[data.caller]}`;
@@ -73,9 +70,7 @@
                 setTimeout(() => {
                     callStatus.style.display = 'none';
                 }, 5000); // Hide message after 5 seconds
-                const ringtone = document.getElementById('ringtone');
-                ringtone.pause();
-                ringtone.currentTime = 0;
+                stopRingtone();
                 document.getElementById('modal').style.display = 'none';
             }
         };
@@ -89,18 +84,14 @@
         };
 
         document.getElementById('accept-btn').onclick = () => {
-            const ringtone = document.getElementById('ringtone');
-            ringtone.pause();
-            ringtone.currentTime = 0;
+            stopRingtone();
             ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'accepted' }));
             clearTimeout(callTimer);
             window.location.href = '/hello-world';
         };
 
         document.getElementById('reject-btn').onclick = () => {
-            const ringtone = document.getElementById('ringtone');
-            ringtone.pause();
-            ringtone.currentTime = 0;
+            stopRingtone();
             ws.send(JSON.stringify({ type: 'response', target: document.getElementById('caller-id').textContent, caller: userId, response: 'rejected' }));
             document.getElementById('modal').style.display = 'none';
             clearTimeout(callTimer);
@@ -126,6 +117,29 @@
 
                     callToSelect.appendChild(option);
                 }
+            }
+        }
+
+        async function playRingtone() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const response = await fetch('/ringtone.mp3');
+                const arrayBuffer = await response.arrayBuffer();
+                ringtoneBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            }
+            const source = audioContext.createBufferSource();
+            source.buffer = ringtoneBuffer;
+            source.loop = true;
+            source.connect(audioContext.destination);
+            source.start();
+            document.ringtoneSource = source; 
+        }
+
+        function stopRingtone() {
+            if (document.ringtoneSource) {
+                document.ringtoneSource.stop();
+                document.ringtoneSource.disconnect();
+                document.ringtoneSource = null;
             }
         }
     </script>
