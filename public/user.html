@@ -36,31 +36,25 @@
             .then(response => response.json())
             .then(data => {
                 userMapping = data;
-                const callToSelect = document.getElementById('call-to');
-                for (const [id, name] of Object.entries(userMapping)) {
-                    if (id !== userId) {
-                        const option = document.createElement('option');
-                        option.value = id;
-                        option.textContent = name;
-                        callToSelect.appendChild(option);
-                    }
-                }
+                updateCallToOptions([]);
             });
 
         const ws = new WebSocket('ws://' + window.location.host);
 
         ws.onopen = () => {
-            console.log('WebSocket connection established');
+            ws.send(JSON.stringify({ type: 'connect', userId: userId }));
         };
 
         ws.onmessage = (message) => {
             const data = JSON.parse(message.data);
-            if (data.type === 'call' && data.target === userId) {
+
+            if (data.type === 'status_update') {
+                updateCallToOptions(data.onlineUsers);
+            } else if (data.type === 'call' && data.target === userId) {
                 document.getElementById('modal').style.display = 'flex';
                 document.getElementById('caller-id').textContent = data.caller;
                 document.getElementById('caller-username').textContent = userMapping[data.caller];
                 const ringtone = document.getElementById('ringtone');
-                console.log('Playing ringtone...');
                 ringtone.play().catch(error => {
                     console.error('Error playing ringtone:', error);
                 });
@@ -111,6 +105,29 @@
             document.getElementById('modal').style.display = 'none';
             clearTimeout(callTimer);
         };
+
+        function updateCallToOptions(onlineUsers) {
+            const callToSelect = document.getElementById('call-to');
+            callToSelect.innerHTML = ''; // Clear existing options
+
+            for (const [id, name] of Object.entries(userMapping)) {
+                if (id !== userId) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = name;
+
+                    if (onlineUsers.includes(id)) {
+                        option.textContent += ' (Online)';
+                        option.style.color = 'green';
+                    } else {
+                        option.textContent += ' (Offline)';
+                        option.style.color = 'red';
+                    }
+
+                    callToSelect.appendChild(option);
+                }
+            }
+        }
     </script>
 </body>
 </html>

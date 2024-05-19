@@ -9,6 +9,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const userMapping = JSON.parse(process.env.USER_MAPPING);
+const onlineUsers = new Set();
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -36,28 +37,43 @@ app.get('/hello-world', (req, res) => {
 });
 
 wss.on('connection', (ws) => {
+    let userId;
+
     ws.on('message', (message) => {
         const data = JSON.parse(message);
-        if (data.type === 'call') {
+
+        if (data.type === 'connect') {
+            userId = data.userId;
+            onlineUsers.add(userId);
+            broadcastUserStatus();
+        } else if (data.type === 'call' || data.type === 'response' || data.type === 'call_timeout') {
             wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'call', target: data.target, caller: data.caller }));
-                }
-            });
-        } else if (data.type === 'response') {
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'response', target: data.target, caller: data.caller, response: data.response }));
-                }
-            });
-        } else if (data.type === 'call_timeout') {
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'call_timeout', target: data.target, caller: data.caller }));
+                    client.send(JSON.stringify(data));
                 }
             });
         }
     });
+
+    ws.on('close', () => {
+        if (userId) {
+            onlineUsers.delete(userId);
+            broadcastUserStatus();
+        }
+    });
+
+    const broadcastUserStatus = () => {
+        const statusMessage = JSON.stringify({
+            type: 'status_update',
+            onlineUsers: Array.from(onlineUsers),
+        });
+
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(statusMessage);
+            }
+        });
+    };
 });
 
 const PORT = process.env.PORT || 3000;
